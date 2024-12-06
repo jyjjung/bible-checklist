@@ -1,8 +1,8 @@
-// app/layout.tsx
 import { ReactNode } from "react";
 import { NextUIProvider } from "@nextui-org/react";
+import { UserProvider } from "@/context/UserContext"; // Adjust path if needed
 import AppNavbar from "@/components/Navbar"; // Adjust import if needed
-import "@/styles/globals.css"; // Your global styles, make sure it's linked
+import "@/styles/globals.css";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -11,12 +11,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <title>Bible App</title>
       </head>
       <body>
-        <NextUIProvider>
-          <AppNavbar /> {/* This renders the Navbar globally */}
-          <div style={{ padding: "20px" }}>
-            {children} {/* This is where the page-specific content will go */}
-          </div>
-        </NextUIProvider>
+        <UserProvider>
+          <NextUIProvider>
+            <AppNavbar />{" "}
+            {/* Navbar will have access to UserContext if needed */}
+            <div style={{ padding: "20px" }}>{children}</div>
+          </NextUIProvider>
+        </UserProvider>
       </body>
     </html>
   );
