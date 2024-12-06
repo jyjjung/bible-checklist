@@ -250,11 +250,18 @@ export default function BibleReadingPlan() {
                 Your Reading Plan
               </h4>
               <Button
+                onClick={generatePlan}
+                className="mt-4 w-full bg-gray-200 hover:bg-gray-300 text-gray-800"
+              >
+                Generate Plan
+              </Button>
+              <Button
                 onClick={toggleFullPlan}
                 className="mt-4 w-full bg-gray-200 hover:bg-gray-300 text-gray-800"
               >
                 {showFullPlan ? "Show Selected Date" : "Show Full Plan"}
               </Button>
+
               <div className="space-y-4 mt-4">
                 {plan
                   .filter((day) => showFullPlan || day.date === selectedDate)
