@@ -3,19 +3,28 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/context/UserContext";
-import { logout } from "@/lib/auth"; // Make sure this is the correct import for logout
+import { logout } from "@/lib/auth"; // Adjust the import if needed
+import {
+  Navbar,
+  NavbarBrand,
+  NavbarContent,
+  NavbarMenuToggle,
+  NavbarMenu,
+  NavbarItem,
+  NavbarMenuItem,
+  Link,
+} from "@nextui-org/react";
 
 export default function AppNavbar() {
   const router = useRouter();
   const { user, loading } = useUser();
-  const [visible, setVisible] = useState(false); // State to control modal visibility
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // State to toggle collapsible menu
+  const [visible, setVisible] = useState(false); // State for logout confirmation modal
 
-  // Inline logout handler with modal trigger
   const handleLogout = () => {
     setVisible(true); // Show confirmation modal
   };
 
-  // Handle actual logout
   const confirmLogoutAction = async () => {
     try {
       await logout();
@@ -27,48 +36,95 @@ export default function AppNavbar() {
     setVisible(false); // Close the modal
   };
 
+  const menuItems = [
+    { label: "Checklist", href: "/checklist" },
+    { label: "Plan", href: "/plan" },
+  ];
+
   return (
-    <div>
-      <nav className="bg-gray-800 text-white p-4">
-        <div className="flex justify-between items-center">
-          <div className="font-bold">Bible App</div>
-          <div className="flex gap-4">
-            {/* Main Links */}
-            <a href="/checklist" className="hover:underline">
-              Checklist
-            </a>
-            <a href="/plan" className="hover:underline">
-              Plan
-            </a>
+    <Navbar onMenuOpenChange={setIsMenuOpen} isMenuOpen={isMenuOpen}>
+      <NavbarContent>
+        <NavbarMenuToggle
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+          className="sm:hidden"
+        />
+        <NavbarBrand>
+          <p className="font-bold text-inherit">Bible App</p>
+        </NavbarBrand>
+      </NavbarContent>
 
-            {/* Auth Links */}
-            {loading ? (
-              <p>Loading...</p>
-            ) : user ? (
-              <>
-                <span>Welcome, {user.email}</span>
-                <button
-                  className="text-red-500 hover:underline"
-                  onClick={handleLogout} // Trigger the modal for logout
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <a href="/login" className="text-blue-500 hover:underline">
-                  Login
-                </a>
-                <a href="/signup" className="text-blue-500 hover:underline">
-                  Sign Up
-                </a>
-              </>
-            )}
-          </div>
-        </div>
-      </nav>
+      <NavbarContent className="hidden sm:flex gap-4" justify="center">
+        {menuItems.map((item) => (
+          <NavbarItem key={item.label}>
+            <Link href={item.href}>{item.label}</Link>
+          </NavbarItem>
+        ))}
+        {loading ? (
+          <NavbarItem>
+            <p>Loading...</p>
+          </NavbarItem>
+        ) : user ? (
+          <>
+            <NavbarItem>
+              <span>Welcome, {user.email}</span>
+            </NavbarItem>
+            <NavbarItem>
+              <button
+                className="text-red-500 hover:underline"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </NavbarItem>
+          </>
+        ) : (
+          <>
+            <NavbarItem>
+              <Link href="/login" className="text-blue-500">
+                Login
+              </Link>
+            </NavbarItem>
+            <NavbarItem>
+              <Link href="/signup" className="text-blue-500">
+                Sign Up
+              </Link>
+            </NavbarItem>
+          </>
+        )}
+      </NavbarContent>
 
-      {/* Modal for logout confirmation */}
+      <NavbarMenu>
+        {menuItems.map((item) => (
+          <NavbarMenuItem key={item.label}>
+            <Link href={item.href}>{item.label}</Link>
+          </NavbarMenuItem>
+        ))}
+        {loading ? (
+          <NavbarMenuItem>Loading...</NavbarMenuItem>
+        ) : user ? (
+          <>
+            <NavbarMenuItem>Welcome, {user.email}</NavbarMenuItem>
+            <NavbarMenuItem>
+              <button
+                className="text-red-500 w-full text-left"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </NavbarMenuItem>
+          </>
+        ) : (
+          <>
+            <NavbarMenuItem>
+              <Link href="/login">Login</Link>
+            </NavbarMenuItem>
+            <NavbarMenuItem>
+              <Link href="/signup">Sign Up</Link>
+            </NavbarMenuItem>
+          </>
+        )}
+      </NavbarMenu>
+
       {visible && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
@@ -78,13 +134,13 @@ export default function AppNavbar() {
             <div className="flex justify-end gap-4">
               <button
                 className="bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
-                onClick={() => setVisible(false)} // Close modal
+                onClick={() => setVisible(false)}
               >
                 Cancel
               </button>
               <button
                 className="bg-red-500 text-white py-2 px-4 rounded-lg hover:bg-red-600"
-                onClick={confirmLogoutAction} // Confirm logout
+                onClick={confirmLogoutAction}
               >
                 Confirm Logout
               </button>
@@ -92,6 +148,6 @@ export default function AppNavbar() {
           </div>
         </div>
       )}
-    </div>
+    </Navbar>
   );
 }
