@@ -14,9 +14,12 @@ import {
   Button,
 } from "@nextui-org/react";
 import ProgressBar from "@/components/ProgressBar";
+import { db } from "@/lib/firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { useAuthState } from "react-firebase-hooks/auth";
+import { auth } from "@/lib/firebase"; // Firebase auth instance
 
 const bibleBooks = [
-  // Old Testament
   { name: "Genesis", chapters: 50 },
   { name: "Exodus", chapters: 40 },
   { name: "Leviticus", chapters: 27 },
@@ -56,8 +59,6 @@ const bibleBooks = [
   { name: "Haggai", chapters: 2 },
   { name: "Zechariah", chapters: 14 },
   { name: "Malachi", chapters: 4 },
-
-  // New Testament
   { name: "Matthew", chapters: 28 },
   { name: "Mark", chapters: 16 },
   { name: "Luke", chapters: 24 },
@@ -100,28 +101,47 @@ interface Book {
 }
 
 export default function ChecklistPage() {
-  const [books, setBooks] = useState<Book[]>(
-    bibleBooks.map((book) => ({
-      ...book,
-      chapters: Array.from({ length: book.chapters }, (_, i) => ({
-        id: i + 1,
-        name: `${book.name} ${i + 1}`,
-        completed: false,
-        completionDate: null,
-      })),
-    }))
-  );
+  const [books, setBooks] = useState<Book[]>([]);
+  const [user] = useAuthState(auth); // Get logged-in user
 
-  useEffect(() => {
-    const savedCompletionStates = localStorage.getItem("bibleCompletionStates");
-    if (savedCompletionStates) {
-      setBooks(JSON.parse(savedCompletionStates));
+  const fetchData = async () => {
+    if (!user) return;
+
+    const docRef = doc(db, "bibleChecklist", user.uid); // Fetch user-specific data
+    const docSnap = await getDoc(docRef);
+
+    if (docSnap.exists()) {
+      setBooks(docSnap.data().books);
+    } else {
+      setBooks(
+        bibleBooks.map((book) => ({
+          ...book,
+          chapters: Array.from({ length: book.chapters }, (_, i) => ({
+            id: i + 1,
+            name: `${book.name} ${i + 1}`,
+            completed: false,
+            completionDate: null,
+          })),
+        }))
+      );
     }
-  }, []);
+  };
+
+  const saveData = async (books: Book[]) => {
+    if (!user) return;
+
+    await setDoc(doc(db, "bibleChecklist", user.uid), { books });
+  };
 
   useEffect(() => {
-    localStorage.setItem("bibleCompletionStates", JSON.stringify(books));
-  }, [books]);
+    fetchData();
+  }, [user]);
+
+  useEffect(() => {
+    if (books.length > 0 && user) {
+      saveData(books);
+    }
+  }, [books, user]);
 
   const toggleCompletion = (bookName: string, chapterId: number) => {
     setBooks((prevBooks) =>
@@ -146,6 +166,25 @@ export default function ChecklistPage() {
     );
   };
 
+  const toggleBookCompletion = (bookName: string, markComplete: boolean) => {
+    setBooks((prevBooks) =>
+      prevBooks.map((book) =>
+        book.name === bookName
+          ? {
+              ...book,
+              chapters: book.chapters.map((chapter) => ({
+                ...chapter,
+                completed: markComplete,
+                completionDate: markComplete
+                  ? new Date().toLocaleDateString()
+                  : null,
+              })),
+            }
+          : book
+      )
+    );
+  };
+
   const resetProgress = () => {
     const isConfirmed = window.confirm(
       "Are you sure you want to reset your progress?"
@@ -164,40 +203,6 @@ export default function ChecklistPage() {
     }
   };
 
-  const markBookAsDone = (bookName: string) => {
-    setBooks((prevBooks) =>
-      prevBooks.map((book) =>
-        book.name === bookName
-          ? {
-              ...book,
-              chapters: book.chapters.map((chapter) => ({
-                ...chapter,
-                completed: true,
-                completionDate: new Date().toLocaleDateString(),
-              })),
-            }
-          : book
-      )
-    );
-  };
-
-  const markBookAsNotDone = (bookName: string) => {
-    setBooks((prevBooks) =>
-      prevBooks.map((book) =>
-        book.name === bookName
-          ? {
-              ...book,
-              chapters: book.chapters.map((chapter) => ({
-                ...chapter,
-                completed: false,
-                completionDate: null,
-              })),
-            }
-          : book
-      )
-    );
-  };
-
   const completedCount = books
     .map((book) => book.chapters.filter((chapter) => chapter.completed).length)
     .reduce((acc, count) => acc + count, 0);
@@ -210,56 +215,62 @@ export default function ChecklistPage() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Bible Checklist</h1>
-      <ProgressBar completed={progress} total={100} />
+      {user ? (
+        <>
+          <h1 className="text-2xl font-bold mb-4">Bible Checklist</h1>
+          <ProgressBar completed={progress} total={100} />
 
-      <Button color="danger" onClick={resetProgress} className="mb-4">
-        Reset Progress
-      </Button>
+          <Button color="danger" onClick={resetProgress} className="mb-4">
+            Reset Progress
+          </Button>
 
-      <Accordion isCompact variant="bordered">
-        {books.map((book) => (
-          <AccordionItem key={book.name} title={book.name}>
-            <div className="mb-4 flex gap-2">
-              <Button
-                color="primary"
-                size="sm"
-                onClick={() => markBookAsDone(book.name)}
-              >
-                Mark All Chapters as Done
-              </Button>
-              <Button
-                color="secondary"
-                size="sm"
-                onClick={() => markBookAsNotDone(book.name)}
-              >
-                Mark All Chapters as Not Done
-              </Button>
-            </div>
-            <Table aria-label={`${book.name} chapters`}>
-              <TableHeader>
-                <TableColumn>Chapter Number</TableColumn>
-                <TableColumn>Completed</TableColumn>
-                <TableColumn>Completion Date</TableColumn>
-              </TableHeader>
-              <TableBody>
-                {book.chapters.map((chapter) => (
-                  <TableRow key={chapter.id}>
-                    <TableCell>{chapter.id}</TableCell>
-                    <TableCell>
-                      <Checkbox
-                        isSelected={chapter.completed}
-                        onChange={() => toggleCompletion(book.name, chapter.id)}
-                      />
-                    </TableCell>
-                    <TableCell>{chapter.completionDate || "-"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </AccordionItem>
-        ))}
-      </Accordion>
+          <Accordion isCompact variant="bordered">
+            {books.map((book) => (
+              <AccordionItem key={book.name} title={book.name}>
+                <div className="flex justify-end gap-4 mb-2">
+                  <Button
+                    size="sm"
+                    onClick={() => toggleBookCompletion(book.name, true)}
+                  >
+                    Mark All as Done
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => toggleBookCompletion(book.name, false)}
+                  >
+                    Mark All as Not Done
+                  </Button>
+                </div>
+                <Table aria-label={`${book.name} chapters`}>
+                  <TableHeader>
+                    <TableColumn>Chapter Number</TableColumn>
+                    <TableColumn>Completed</TableColumn>
+                    <TableColumn>Completion Date</TableColumn>
+                  </TableHeader>
+                  <TableBody>
+                    {book.chapters.map((chapter) => (
+                      <TableRow key={chapter.id}>
+                        <TableCell>{chapter.id}</TableCell>
+                        <TableCell>
+                          <Checkbox
+                            isSelected={chapter.completed}
+                            onChange={() =>
+                              toggleCompletion(book.name, chapter.id)
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>{chapter.completionDate || "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </>
+      ) : (
+        <p>Please log in to view your progress.</p>
+      )}
     </div>
   );
 }
