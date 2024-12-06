@@ -34,9 +34,6 @@ export default function AppNavbar() {
           <div className="font-bold">Bible App</div>
           <div className="flex gap-4">
             {/* Main Links */}
-            <a href="/" className="hover:underline">
-              Home
-            </a>
             <a href="/checklist" className="hover:underline">
               Checklist
             </a>
