@@ -42,91 +42,94 @@ export default function AppNavbar() {
   ];
 
   return (
-    <Navbar onMenuOpenChange={setIsMenuOpen} isMenuOpen={isMenuOpen}>
-      <NavbarContent>
-        <NavbarMenuToggle
-          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-          className="sm:hidden"
-        />
-        <NavbarBrand>
-          <p className="font-bold text-inherit">Bible App</p>
-        </NavbarBrand>
-      </NavbarContent>
+    <>
+      <Navbar onMenuOpenChange={setIsMenuOpen} isMenuOpen={isMenuOpen}>
+        <NavbarContent>
+          <NavbarMenuToggle
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            className="sm:hidden"
+          />
+          <NavbarBrand>
+            <p className="font-bold text-inherit">Bible App</p>
+          </NavbarBrand>
+        </NavbarContent>
 
-      <NavbarContent className="hidden sm:flex gap-4" justify="center">
-        {menuItems.map((item) => (
-          <NavbarItem key={item.label}>
-            <Link href={item.href}>{item.label}</Link>
-          </NavbarItem>
-        ))}
-        {loading ? (
-          <NavbarItem>
-            <p>Loading...</p>
-          </NavbarItem>
-        ) : user ? (
-          <>
-            <NavbarItem>
-              <span>Welcome, {user.email}</span>
+        <NavbarContent className="hidden sm:flex gap-4" justify="center">
+          {menuItems.map((item) => (
+            <NavbarItem key={item.label}>
+              <Link href={item.href}>{item.label}</Link>
             </NavbarItem>
+          ))}
+          {loading ? (
             <NavbarItem>
-              <button
-                className="text-red-500 hover:underline"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
+              <p>Loading...</p>
             </NavbarItem>
-          </>
-        ) : (
-          <>
-            <NavbarItem>
-              <Link href="/login" className="text-blue-500">
-                Login
-              </Link>
-            </NavbarItem>
-            <NavbarItem>
-              <Link href="/signup" className="text-blue-500">
-                Sign Up
-              </Link>
-            </NavbarItem>
-          </>
-        )}
-      </NavbarContent>
+          ) : user ? (
+            <>
+              <NavbarItem>
+                <span>Welcome, {user.email}</span>
+              </NavbarItem>
+              <NavbarItem>
+                <button
+                  className="text-red-500 hover:underline"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </NavbarItem>
+            </>
+          ) : (
+            <>
+              <NavbarItem>
+                <Link href="/login" className="text-blue-500">
+                  Login
+                </Link>
+              </NavbarItem>
+              <NavbarItem>
+                <Link href="/signup" className="text-blue-500">
+                  Sign Up
+                </Link>
+              </NavbarItem>
+            </>
+          )}
+        </NavbarContent>
 
-      <NavbarMenu>
-        {menuItems.map((item) => (
-          <NavbarMenuItem key={item.label}>
-            <Link href={item.href}>{item.label}</Link>
-          </NavbarMenuItem>
-        ))}
-        {loading ? (
-          <NavbarMenuItem>Loading...</NavbarMenuItem>
-        ) : user ? (
-          <>
-            <NavbarMenuItem>Welcome, {user.email}</NavbarMenuItem>
-            <NavbarMenuItem>
-              <button
-                className="text-red-500 w-full text-left"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
+        <NavbarMenu>
+          {menuItems.map((item) => (
+            <NavbarMenuItem key={item.label}>
+              <Link href={item.href}>{item.label}</Link>
             </NavbarMenuItem>
-          </>
-        ) : (
-          <>
-            <NavbarMenuItem>
-              <Link href="/login">Login</Link>
-            </NavbarMenuItem>
-            <NavbarMenuItem>
-              <Link href="/signup">Sign Up</Link>
-            </NavbarMenuItem>
-          </>
-        )}
-      </NavbarMenu>
+          ))}
+          {loading ? (
+            <NavbarMenuItem>Loading...</NavbarMenuItem>
+          ) : user ? (
+            <>
+              <NavbarMenuItem>Welcome, {user.email}</NavbarMenuItem>
+              <NavbarMenuItem>
+                <button
+                  className="text-red-500 w-full text-left"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </NavbarMenuItem>
+            </>
+          ) : (
+            <>
+              <NavbarMenuItem>
+                <Link href="/login">Login</Link>
+              </NavbarMenuItem>
+              <NavbarMenuItem>
+                <Link href="/signup">Sign Up</Link>
+              </NavbarMenuItem>
+            </>
+          )}
+        </NavbarMenu>
+      </Navbar>
 
+      {/* Move the modal outside of the Navbar */}
       {visible && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
             <h3 className="text-xl font-semibold text-center mb-4">
               Are you sure you want to log out?
@@ -148,6 +151,6 @@ export default function AppNavbar() {
           </div>
         </div>
       )}
-    </Navbar>
+    </>
   );
 }
