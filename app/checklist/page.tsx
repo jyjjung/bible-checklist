@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Accordion,
   AccordionItem,
@@ -13,11 +13,23 @@ import {
   TableCell,
   Button,
 } from "@nextui-org/react";
-import ProgressBar from "@/components/ProgressBar";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from "@/lib/firebase"; // Firebase auth instance
+import { auth } from "@/lib/firebase";
+
+interface Chapter {
+  id: number;
+  name: string;
+  completed: boolean;
+  completionDate: string | null;
+}
+
+interface Book {
+  name: string;
+  chapters: Chapter[];
+  progress: number;
+}
 
 const bibleBooks = [
   { name: "Genesis", chapters: 50 },
@@ -88,108 +100,138 @@ const bibleBooks = [
   { name: "Revelation", chapters: 22 },
 ];
 
-interface Chapter {
-  id: number;
-  name: string;
-  completed: boolean;
-  completionDate: string | null;
-}
+const initializeBooks = (): Book[] => {
+  return bibleBooks.map((book) => ({
+    name: book.name,
+    chapters: Array.from({ length: book.chapters }, (_, i) => ({
+      id: i + 1,
+      name: `${book.name} ${i + 1}`,
+      completed: false,
+      completionDate: null,
+    })),
+    progress: 0,
+  }));
+};
 
-interface Book {
-  name: string;
-  chapters: Chapter[];
-}
+const calculateBookProgress = (chapters: Chapter[]): number => {
+  const completedChapters = chapters.filter(
+    (chapter) => chapter.completed
+  ).length;
+  return Math.round((completedChapters / chapters.length) * 100);
+};
+
+const calculateTotalProgress = (books: Book[]): number => {
+  const totalChapters = books.reduce(
+    (sum, book) => sum + book.chapters.length,
+    0
+  );
+  const completedChapters = books.reduce(
+    (sum, book) =>
+      sum + book.chapters.filter((chapter) => chapter.completed).length,
+    0
+  );
+  return totalChapters === 0
+    ? 0
+    : Math.round((completedChapters / totalChapters) * 100);
+};
 
 export default function ChecklistPage() {
   const [books, setBooks] = useState<Book[]>([]);
-  const [user] = useAuthState(auth); // Get logged-in user
+  const [user] = useAuthState(auth);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
 
-    const docRef = doc(db, "bibleChecklist", user.uid); // Fetch user-specific data
+    const docRef = doc(db, "bibleChecklist", user.uid);
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
-      setBooks(docSnap.data().books);
+      const fetchedBooks: Book[] = docSnap.data().books;
+      const updatedBooks = fetchedBooks.map((book) => ({
+        ...book,
+        progress: calculateBookProgress(book.chapters),
+      }));
+      setBooks(updatedBooks);
     } else {
-      setBooks(
-        bibleBooks.map((book) => ({
-          ...book,
-          chapters: Array.from({ length: book.chapters }, (_, i) => ({
-            id: i + 1,
-            name: `${book.name} ${i + 1}`,
-            completed: false,
-            completionDate: null,
-          })),
-        }))
-      );
+      setBooks(initializeBooks());
     }
-  };
+  }, [user]);
 
-  const saveData = async (books: Book[]) => {
-    if (!user) return;
-
-    await setDoc(doc(db, "bibleChecklist", user.uid), { books });
-  };
+  const saveData = useCallback(
+    async (updatedBooks: Book[]) => {
+      if (!user) return;
+      await setDoc(doc(db, "bibleChecklist", user.uid), {
+        books: updatedBooks,
+      });
+    },
+    [user]
+  );
 
   useEffect(() => {
     fetchData();
-  }, [user]);
+  }, [fetchData]);
 
   useEffect(() => {
-    if (books.length > 0 && user) {
+    if (books.length > 0) {
       saveData(books);
     }
-  }, [books, user]);
+  }, [books, saveData]);
 
-  const toggleCompletion = (bookName: string, chapterId: number) => {
-    setBooks((prevBooks) =>
-      prevBooks.map((book) =>
-        book.name === bookName
-          ? {
-              ...book,
-              chapters: book.chapters.map((chapter) =>
-                chapter.id === chapterId
-                  ? {
-                      ...chapter,
-                      completed: !chapter.completed,
-                      completionDate: !chapter.completed
-                        ? new Date().toLocaleDateString()
-                        : null,
-                    }
-                  : chapter
-              ),
-            }
-          : book
-      )
-    );
+  const toggleCompletion = (bookName: string, chapterId: number): void => {
+    setBooks((prevBooks) => {
+      const updatedBooks = prevBooks.map((book) => {
+        if (book.name === bookName) {
+          const updatedChapters = book.chapters.map((chapter) =>
+            chapter.id === chapterId
+              ? {
+                  ...chapter,
+                  completed: !chapter.completed,
+                  completionDate: !chapter.completed
+                    ? new Date().toLocaleDateString()
+                    : null,
+                }
+              : chapter
+          );
+          return {
+            ...book,
+            chapters: updatedChapters,
+            progress: calculateBookProgress(updatedChapters),
+          };
+        }
+        return book;
+      });
+      return updatedBooks;
+    });
   };
 
-  const toggleBookCompletion = (bookName: string, markComplete: boolean) => {
-    setBooks((prevBooks) =>
-      prevBooks.map((book) =>
-        book.name === bookName
-          ? {
-              ...book,
-              chapters: book.chapters.map((chapter) => ({
-                ...chapter,
-                completed: markComplete,
-                completionDate: markComplete
-                  ? new Date().toLocaleDateString()
-                  : null,
-              })),
-            }
-          : book
-      )
-    );
+  const toggleBookCompletion = (
+    bookName: string,
+    markComplete: boolean
+  ): void => {
+    setBooks((prevBooks) => {
+      const updatedBooks = prevBooks.map((book) => {
+        if (book.name === bookName) {
+          const updatedChapters = book.chapters.map((chapter) => ({
+            ...chapter,
+            completed: markComplete,
+            completionDate: markComplete
+              ? new Date().toLocaleDateString()
+              : null,
+          }));
+          return {
+            ...book,
+            chapters: updatedChapters,
+            progress: calculateBookProgress(updatedChapters),
+          };
+        }
+        return book;
+      });
+      return updatedBooks;
+    });
   };
 
-  const resetProgress = () => {
-    const isConfirmed = window.confirm(
-      "Are you sure you want to reset your progress?"
-    );
-    if (isConfirmed) {
+  const resetProgress = (): void => {
+    if (window.confirm("Are you sure you want to reset your progress?")) {
       setBooks((prevBooks) =>
         prevBooks.map((book) => ({
           ...book,
@@ -198,27 +240,30 @@ export default function ChecklistPage() {
             completed: false,
             completionDate: null,
           })),
+          progress: 0,
         }))
       );
     }
   };
 
-  const completedCount = books
-    .map((book) => book.chapters.filter((chapter) => chapter.completed).length)
-    .reduce((acc, count) => acc + count, 0);
-  const totalCount = books
-    .map((book) => book.chapters.length)
-    .reduce((acc, count) => acc + count, 0);
-
-  const progress =
-    totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
+  const totalProgress = calculateTotalProgress(books);
 
   return (
     <div className="p-6">
       {user ? (
         <>
           <h1 className="text-2xl font-bold mb-4">Bible Checklist</h1>
-          <ProgressBar completed={progress} total={100} />
+          <div className="relative w-full h-6 bg-gray-200 rounded-full overflow-hidden shadow-md mb-4">
+            <div
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-green-400 to-blue-500 transition-all duration-500 ease-in-out"
+              style={{ width: `${totalProgress}%` }}
+            ></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-sm font-semibold text-gray-700">
+                {totalProgress}% Completed
+              </span>
+            </div>
+          </div>
 
           <Button color="danger" onClick={resetProgress} className="mb-4">
             Reset Progress
@@ -226,7 +271,18 @@ export default function ChecklistPage() {
 
           <Accordion isCompact variant="bordered">
             {books.map((book) => (
-              <AccordionItem key={book.name} title={book.name}>
+              <AccordionItem
+                key={book.name}
+                title={
+                  <div className="flex justify-between items-center w-full">
+                    <span>{book.name}</span>
+                    <span className="text-sm text-gray-500">
+                      {book.chapters.filter((ch) => ch.completed).length}/
+                      {book.chapters.length}
+                    </span>
+                  </div>
+                }
+              >
                 <div className="flex justify-end gap-4 mb-2">
                   <Button
                     size="sm"
